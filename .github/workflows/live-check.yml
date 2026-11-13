@@ -1,0 +1,21 @@
+name: live-site-check
+
+# Once a week, check that the live site still works. A failure makes this workflow
+# fail, and GitHub emails the person who last edited this file.
+# Run it by hand any time from the Actions tab.
+
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 scripts/check_live.py

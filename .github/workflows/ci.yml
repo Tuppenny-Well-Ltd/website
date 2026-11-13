@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Page and file checks
+        run: python3 -m unittest discover -s tests -v
+
+      # The W3C's own validator. It catches typos and invalid markup that browsers
+      # silently forgive. Warnings count as failures. Java is preinstalled on the runner.
+      - name: Validate HTML
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet html5validator==0.4.2
+          "$RUNNER_TEMP/venv/bin/html5validator" --root . --show-warnings
