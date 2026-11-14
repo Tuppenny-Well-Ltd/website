@@ -23,4 +23,7 @@ jobs:
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet html5validator==0.4.2
-          "$RUNNER_TEMP/venv/bin/html5validator" --root . --show-warnings
+          # The validator's bundled rules predate `media` on theme-color meta tags, which
+          # is valid HTML and works in current browsers, so that one message is ignored.
+          "$RUNNER_TEMP/venv/bin/html5validator" --root . --show-warnings \
+            --ignore 'Attribute "media" not allowed on element "meta" at this point.'
