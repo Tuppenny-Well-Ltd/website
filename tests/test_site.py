@@ -129,6 +129,10 @@ class HeadTests(unittest.TestCase):
         self.assertTrue(10 <= len(self.page.title.strip()) <= 70, "title should be 10-70 characters")
         description = self.page.meta.get("description", "")
         self.assertTrue(50 <= len(description) <= 160, "description should be 50-160 characters")
+        # LinkedIn's Post Inspector warns about preview descriptions under 100 characters.
+        for key in ("og:description", "twitter:description"):
+            length = len(self.page.meta.get(key, ""))
+            self.assertTrue(100 <= length <= 200, f"{key} should be 100-200 characters, not {length}")
 
     def test_canonical_and_open_graph(self) -> None:
         canonical = [x["href"] for x in self.page.links if x.get("rel") == "canonical"]
