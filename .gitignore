@@ -1,0 +1,3 @@
+# Python cache files, created when the tests and scripts run
+__pycache__/
+*.pyc
