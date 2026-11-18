@@ -68,7 +68,7 @@ Everything below is set up and working. This section is here so you can understa
 
 - **Domain:** registered at Namecheap. DNS is also at Namecheap (Domain List, **Manage**, **Advanced DNS**). Nameservers are Namecheap's own and have not been moved.
 - **Website:** GitHub Pages, serving the `main` branch from the repo root. **Enforce HTTPS** is on. GitHub issues and renews the certificate itself.
-- **Email:** Proton Mail, on a custom domain. `hello@tuppennywell.com` is delivered to Proton (the domain has a catch-all address on).
+- **Email:** Proton Mail, on a custom domain. `hello@tuppennywell.com` is delivered to Proton.
 
 These DNS records exist. Do not delete any of them without knowing what it does.
 
@@ -88,7 +88,7 @@ The GitHub IP addresses come from GitHub's documentation, "Managing a custom dom
 
 ## Renewals
 
-- **Domain:** `tuppennywell.com` is registered until **21 March 2027**. Namecheap's **Auto-Renew** should be on (Domain List, **Manage**, **Auto-Renew**). Check that it is, and that the payment card is current, a month or two beforehand. After each renewal, update the date in this file.
+- **Domain:** `tuppennywell.com` is registered for a year at a time and renews every March. Namecheap's **Auto-Renew** should be on (Domain List, **Manage**, **Auto-Renew**). Check the exact expiry date in Namecheap, and check that auto-renew is on and the payment card is current, a month or two beforehand.
 - **Namecheap account email:** use an address that is **not** on `tuppennywell.com`. If the domain lapsed, mail to it would stop working, and so would the reminders.
 - **If the domain lapses,** the site and email both stop. Renew it in Namecheap as soon as possible. Namecheap usually allows a short grace period after expiry, sometimes at extra cost.
 - **HTTPS certificate:** renewed by GitHub, with nothing to do. The weekly check warns if it is within 10 days of expiring.
