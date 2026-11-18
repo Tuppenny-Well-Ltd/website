@@ -68,7 +68,7 @@ Everything below is set up and working. This section is here so you can understa
 
 - **Domain:** registered at Namecheap. DNS is also at Namecheap (Domain List, **Manage**, **Advanced DNS**). Nameservers are Namecheap's own and have not been moved.
 - **Website:** GitHub Pages, serving the `main` branch from the repo root. **Enforce HTTPS** is on. GitHub issues and renews the certificate itself.
-- **Email:** Proton Mail, on a custom domain. `hello@tuppennywell.com` is delivered to Proton.
+- **Email:** hosted with a separate email provider, not at Namecheap or GitHub. `hello@tuppennywell.com` is delivered there. The provider's name and login details are in your private notes, not in this repo.
 
 These DNS records exist. Do not delete any of them without knowing what it does.
 
@@ -78,13 +78,15 @@ These DNS records exist. Do not delete any of them without knowing what it does.
 | Website (IPv6) | AAAA, four records | `@` | `2606:50c0:8000::153`, `8001::153`, `8002::153`, `8003::153` |
 | `www` redirects to the main address | CNAME | `www` | `tuppenny-well-ltd.github.io.` |
 | GitHub domain verification | TXT | `_github-pages-challenge-Tuppenny-Well-Ltd` | (a code GitHub gave us) |
-| Email delivery | MX, two records | `@` | `mail.protonmail.ch` (10), `mailsec.protonmail.ch` (20) |
-| Email authentication | TXT and CNAME | `@`, `_dmarc`, three `protonmail*._domainkey` | Proton's SPF, DMARC and DKIM records |
-| Proton domain verification | TXT | `@` | `protonmail-verification=...` |
+| Email delivery | MX, two records | `@` | Set by the email provider; see its domain setup page |
+| Email authentication | TXT and CNAME | `@`, `_dmarc`, and `_domainkey` names | SPF, DMARC and DKIM records from the email provider |
+| Email provider domain verification | TXT | `@` | A code the email provider gave us |
 
 The GitHub IP addresses come from GitHub's documentation, "Managing a custom domain for your GitHub Pages site". If the site ever stops resolving, check them against that page.
 
 **Before changing any DNS:** take a screenshot of the Advanced DNS page. Never touch the email records or the Mail Settings dropdown (it must stay on **Custom MX**) as part of a website change.
+
+**Changing email provider:** the email records (MX, SPF, DKIM, DMARC and the verification code) belong together as a set. Add the new provider's records alongside the old ones, wait until the new provider shows the domain as verified, and only then switch the MX records and remove the old ones. A domain should have exactly one SPF record, so edit the existing one instead of adding a second.
 
 ## Renewals
 
@@ -127,7 +129,7 @@ dig +short MX tuppennywell.com
 | `dig` is blank here but works elsewhere | A stale cache on your own network. Ask Namecheap's server directly: add `@dns1.registrar-servers.com` to the `dig` command. |
 | Certificate warning | Usually the DNS records are wrong, or the domain was changed in Pages. Check **Settings**, then **Pages**, shows "DNS check successful". As a last resort, remove the custom domain there, save, add it again and wait. Do not do this casually: it restarts certificate issuance. |
 | `www` does not redirect | The `www` CNAME is missing or wrong. |
-| Email stops arriving | The MX records or Mail Settings changed. Restore them, and check Proton's **Domain names** page shows all green. |
+| Email stops arriving | The MX records or Mail Settings changed. Restore them from the email provider's domain setup page, which shows what each record should be and whether it is correct. |
 | GitHub Pages is down for a long time | The site content is entirely in this repo, so it can be served from another static host (Cloudflare Pages or Netlify) in about 15 minutes. Create the project from this repo, point the same A, AAAA and `www` records at it, and keep the email records unchanged. |
 
 ## Where things live
@@ -135,7 +137,7 @@ dig +short MX tuppennywell.com
 - **Code and content:** <https://github.com/Tuppenny-Well-Ltd/website>
 - **Logo and icon source:** <https://github.com/Tuppenny-Well-Ltd/logo-design>
 - **Domain and DNS:** Namecheap
-- **Email:** Proton Mail (Settings, then **Domain names**)
+- **Email:** your email provider's domain settings (details in your private notes)
 - **Hosting settings:** the repo's **Settings**, then **Pages**
 
 © 2026 Tuppenny Well Ltd. All rights reserved.
