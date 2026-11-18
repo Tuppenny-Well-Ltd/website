@@ -1,7 +1,7 @@
 """Checks on the static site: every file the page needs exists and the head is complete.
 
-Run with `python3 -m unittest`. Standard library only, so nothing needs installing.
-Set SITE_DIR to check a different folder (used to test that these checks can fail).
+Run with `python3 -m unittest discover -s tests`. Standard library only, so nothing needs
+installing. Set SITE_DIR to check a different folder (used to test that these checks can fail).
 """
 
 import os
@@ -16,6 +16,9 @@ DOMAIN = "tuppennywell.com"
 SITE = f"https://{DOMAIN}"
 MAX_PAGE_BYTES = 100_000  # the page should stay light
 MAX_OG_IMAGE_BYTES = 5_000_000  # LinkedIn ignores preview images larger than 5 MB
+MIN_CONTRAST = 4.5  # WCAG AA for normal text
+
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
 
 
 class Page(HTMLParser):
@@ -29,6 +32,9 @@ class Page(HTMLParser):
         self.links: list[dict[str, str]] = []
         self.tags: list[tuple[str, dict[str, str | None]]] = []
         self.style = ""
+        self.visible_text = ""
+        self._stack: list[str] = []
+        self._hidden_from: int | None = None  # stack depth where a hidden element starts
         self._in = ""
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -42,18 +48,32 @@ class Page(HTMLParser):
                 self.meta[key] = a.get("content") or ""
         elif tag == "link":
             self.links.append({k: v or "" for k, v in a.items()})
-        elif tag in ("title", "style"):
-            self._in = tag
+        # Only the page's own <title> counts, not the <title> inside an inline SVG.
+        elif tag == "title" and "svg" not in self._stack:
+            self._in = "title"
+        elif tag == "style":
+            self._in = "style"
+        if tag not in VOID_TAGS:
+            self._stack.append(tag)
+            if "hidden" in a and self._hidden_from is None:
+                self._hidden_from = len(self._stack)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in ("title", "style"):
             self._in = ""
+        if tag in self._stack:
+            while self._stack and self._stack.pop() != tag:
+                pass
+            if self._hidden_from is not None and len(self._stack) < self._hidden_from:
+                self._hidden_from = None
 
     def handle_data(self, data: str) -> None:
         if self._in == "title":
             self.title += data
         elif self._in == "style":
             self.style += data
+        elif self._hidden_from is None and not {"svg", "script", "style"} & set(self._stack):
+            self.visible_text += data
 
 
 def parse() -> Page:
@@ -72,6 +92,30 @@ def local_path(url: str) -> Path:
     """Map a link on the page (relative or on our own domain) to a file in the repo."""
     path = url.removeprefix(SITE).split("#")[0].split("?")[0]
     return ROOT / path.lstrip("/")
+
+
+def all_css(page: Page) -> str:
+    """The page's inline CSS plus every local stylesheet it links."""
+    css = page.style
+    for link in page.links:
+        if link.get("rel") == "stylesheet" and not re.match(r"(https?:)?//", link["href"]):
+            css += local_path(link["href"]).read_text(encoding="utf-8")
+    return css
+
+
+def luminance(colour: str) -> float:
+    parts = [int(colour.lstrip("#")[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in parts]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a: str, b: str) -> float:
+    high, low = sorted((luminance(a), luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def tokens(block: str) -> dict[str, str]:
+    return dict(re.findall(r"--([\w-]+)\s*:\s*(#[0-9a-fA-F]{6})", block))
 
 
 class HeadTests(unittest.TestCase):
@@ -95,7 +139,7 @@ class HeadTests(unittest.TestCase):
         self.assertEqual(self.page.meta.get("twitter:card"), "summary_large_image")
 
     def test_supports_dark_mode(self) -> None:
-        self.assertRegex(self.page.style, r"prefers-color-scheme\s*:\s*dark")
+        self.assertRegex(all_css(self.page), r"prefers-color-scheme\s*:\s*dark")
 
 
 class FileTests(unittest.TestCase):
@@ -119,6 +163,11 @@ class FileTests(unittest.TestCase):
         self.assertIn(b"<svg", local_path("/favicon.svg").read_bytes())
         self.assertEqual(local_path("/favicon.ico").read_bytes()[:4], b"\x00\x00\x01\x00")
         self.assertEqual(png_size(local_path("/apple-touch-icon.png")), (180, 180))
+
+    def test_linked_stylesheets_exist(self) -> None:
+        for link in self.page.links:
+            if link.get("rel") == "stylesheet":
+                self.assertTrue(local_path(link["href"]).is_file(), f"{link['href']} is missing")
 
     def test_hosting_files(self) -> None:
         self.assertEqual((ROOT / "CNAME").read_text().strip(), DOMAIN)
@@ -144,13 +193,31 @@ class PrivacyAndAccessibilityTests(unittest.TestCase):
         for link in self.page.links:
             if link.get("rel") != "canonical":
                 self.assertFalse(external.match(link.get("href", "")), f"<link> loads {link}")
-        self.assertNotRegex(self.page.style, r"url\(\s*['\"]?(https?:)?//|@import")
+        self.assertNotRegex(all_css(self.page), r"url\(\s*['\"]?(https?:)?//|@import")
 
     def test_images_have_alt_text_and_one_h1(self) -> None:
         for tag, attrs in self.page.tags:
             if tag == "img":
                 self.assertIn("alt", attrs, f"image {attrs.get('src')} has no alt attribute")
         self.assertEqual([t for t, _ in self.page.tags].count("h1"), 1)
+
+    def test_no_placeholder_text_is_visible(self) -> None:
+        found = re.findall(r"\[[A-Z][^\]\n]*\]", self.page.visible_text)
+        self.assertEqual(found, [], "fill in or hide these placeholders before publishing")
+
+    def test_text_contrast_meets_wcag_aa(self) -> None:
+        css = all_css(self.page)
+        light = tokens(re.search(r":root\s*\{(.*?)\}", css, re.S).group(1))
+        dark_block = re.search(r"prefers-color-scheme\s*:\s*dark\s*\)\s*\{\s*:root\s*\{(.*?)\}", css, re.S)
+        modes = {"light": light, "dark": {**light, **tokens(dark_block.group(1))}}
+        pairs = [
+            ("ink", "bg"), ("ink", "panel"), ("ink-soft", "bg"), ("ink-soft", "panel"),
+            ("accent", "bg"), ("accent", "panel"), ("on-accent", "accent"),
+        ]
+        for mode, colours in modes.items():
+            for fg, bg in pairs:
+                ratio = contrast(colours[fg], colours[bg])
+                self.assertGreaterEqual(ratio, MIN_CONTRAST, f"{mode}: {fg} on {bg} is only {ratio:.1f}:1")
 
 
 if __name__ == "__main__":
